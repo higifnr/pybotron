@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: pybotron
+Version: 0.1.0
+Summary: a package that makes simulating robots on python more like matlab
+Author-email: higifnr <abdelhakimboubaker6@gmail.com>
+License: MIT
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: matplotlib
+Requires-Dist: opencv-python

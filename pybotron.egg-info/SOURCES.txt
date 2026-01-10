@@ -1,0 +1,12 @@
+LICENSE
+README.md
+pyproject.toml
+setup.cfg
+pybotron/__init__.py
+pybotron/main_module.py
+pybotron.egg-info/PKG-INFO
+pybotron.egg-info/SOURCES.txt
+pybotron.egg-info/dependency_links.txt
+pybotron.egg-info/requires.txt
+pybotron.egg-info/top_level.txt
+tests/test.py
