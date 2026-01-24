@@ -1,12 +1,12 @@
 # ==============================
 # Welcome to pybotron! 
 # a Python package meant for making Robotics / Vision simulation easier and matlab-like
-# includes: Dual Quaternions, Quaternions, Plücker Lines, Linear Algebra, Plotting
+# includes: Dual Quaternions, Quaternions, Linear Algebra, Plotting
 # ==============================
 
 # --- System / Math ---
 import numpy as np
-from numpy import sin, cos
+from numpy import sin, cos, sqrt
 from numpy.linalg import norm, pinv, inv
 from scipy.linalg import expm, logm
 from scipy.spatial.transform import Rotation as Rot
@@ -19,10 +19,10 @@ import cv2
 
 # --- Math functions ---
 
-def pts_to_homog(points : np.ndarray):
-    pts = points.copy().reshape(-1,1)
-    n = pts.shape[1]
-    return np.vstack((pts, np.ones((1, n))))
+def pts_to_homog(point : np.ndarray):
+    pt = point.copy().reshape(-1,1)
+    n = pt.shape[1]
+    return np.vstack((pt, np.ones((1, n))))
 
 def skew(vector):
     """Return the skew-symmetric matrix of a 3-vector"""
@@ -954,6 +954,101 @@ class Camera:
             img = self.pose @ np.vstack([self.project_to_image_plane(pts),np.ones((1,pts.shape[1]))])
             img = img[:3,:]
             self.plot_points_3D(img,size=10,ax=ax)
+
+
+class Quaternion:
+    def __init__(self, w, x, y, z):
+        self.w = float(w)
+        self.x = float(x)
+        self.y = float(y)
+        self.z = float(z)
+        self.v = np.array([self.x, self.y, self.z], dtype=float)
+
+        
+    def __pos__(self):
+        return self
+    
+    def __neg__(self):
+        return Quaternion(-self.w, -self.x, -self.y, -self.z)
+    
+    # Eucledian norm
+    def norm(self):
+        return np.sqrt(self.w**2 + self.x**2 + self.y**2 + self.z**2)
+
+    # Conjugate
+    def __invert__(self):
+        return Quaternion(self.w, -self.x, -self.y, -self.z)
+
+    # Explicit conjugate method
+    def star(self):
+        return ~self
+
+    # Quaternion addition
+    def __add__(self,other):
+        if isinstance(other, Quaternion):
+            return Quaternion(self.w + other.w, self.x + other.x, self.y + other.y, self.z + other.z)
+        return NotImplemented
+    
+    # Quaternion subtraction
+    def __sub__(self,other):
+        if isinstance(other, Quaternion):
+            return self + (-other)
+        return NotImplemented
+
+    # Quaternion multiplication or scalar multiplication
+    def __mul__(self, other):
+        if isinstance(other, Quaternion):
+            w1, x1, y1, z1 = self.w, self.x, self.y, self.z
+            w2, x2, y2, z2 = other.w, other.x, other.y, other.z
+            w = w1*w2 - x1*x2 - y1*y2 - z1*z2
+            x = w1*x2 + x1*w2 + y1*z2 - z1*y2
+            y = w1*y2 - x1*z2 + y1*w2 + z1*x2
+            z = w1*z2 + x1*y2 - y1*x2 + z1*w2
+            return Quaternion(w, x, y, z)
+        elif isinstance(other, (int, float)):
+            return Quaternion(self.w*other, self.x*other, self.y*other, self.z*other)
+        return NotImplemented
+
+    # Reflected multiplication: float * quaternion
+    def __rmul__(self, other):
+        if isinstance(other, (int, float)):
+            return self * other
+        return NotImplemented
+
+    # Quaternion division or scalar division
+    def __truediv__(self, other):
+        if isinstance(other, Quaternion):
+            return self * other.inverse()
+        elif isinstance(other, (int, float)):
+            return Quaternion(self.w/other, self.x/other, self.y/other, self.z/other)
+        return NotImplemented
+
+    # Reflected division: float / quaternion
+    def __rtruediv__(self, other):
+        if isinstance(other, (int, float)):
+            return self.inverse() * other
+        return NotImplemented
+
+    # Quaternion inverse
+    def inverse(self):
+        n2 = self.norm()**2
+        if n2 == 0:
+            raise ZeroDivisionError("Cannot invert a zero quaternion")
+        conj = ~self
+        return Quaternion(conj.w / n2, conj.x / n2, conj.y / n2, conj.z / n2)
+
+    # Rotation matrix (3x3)
+    def to_rot_matrix(self):
+        w, x, y, z = self.w, self.x, self.y, self.z
+        return np.array([
+            [1 - 2*(y**2 + z**2),     2*(x*y - z*w),     2*(x*z + y*w)],
+            [    2*(x*y + z*w), 1 - 2*(x**2 + z**2),     2*(y*z - x*w)],
+            [    2*(x*z - y*w),     2*(y*z + x*w), 1 - 2*(x**2 + y**2)]
+        ], dtype=float)
+
+    def __repr__(self):
+        return f"Quaternion({self.w}, {self.x}, {self.y}, {self.z})"
+
 
 # --- Subclasses ---
 

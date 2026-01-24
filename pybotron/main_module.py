@@ -964,6 +964,14 @@ class Quaternion:
         self.z = float(z)
         self.v = np.array([self.x, self.y, self.z], dtype=float)
 
+        
+    def __pos__(self):
+        return self
+    
+    def __neg__(self):
+        return Quaternion(-self.w, -self.x, -self.y, -self.z)
+    
+    # Eucledian norm
     def norm(self):
         return np.sqrt(self.w**2 + self.x**2 + self.y**2 + self.z**2)
 
@@ -974,6 +982,18 @@ class Quaternion:
     # Explicit conjugate method
     def star(self):
         return ~self
+
+    # Quaternion addition
+    def __add__(self,other):
+        if isinstance(other, Quaternion):
+            return Quaternion(self.w + other.w, self.x + other.x, self.y + other.y, self.z + other.z)
+        return NotImplemented
+    
+    # Quaternion subtraction
+    def __sub__(self,other):
+        if isinstance(other, Quaternion):
+            return self + (-other)
+        return NotImplemented
 
     # Quaternion multiplication or scalar multiplication
     def __mul__(self, other):
@@ -1003,10 +1023,10 @@ class Quaternion:
             return Quaternion(self.w/other, self.x/other, self.y/other, self.z/other)
         return NotImplemented
 
-    # Reflected division: 1 / quaternion
+    # Reflected division: float / quaternion
     def __rtruediv__(self, other):
-        if other == 1:
-            return self.inverse()
+        if isinstance(other, (int, float)):
+            return self.inverse() * other
         return NotImplemented
 
     # Quaternion inverse
