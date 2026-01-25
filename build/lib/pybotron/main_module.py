@@ -14,13 +14,16 @@ from scipy.spatial.transform import Rotation as Rot
 # --- Plotting / Visualization ---
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.animation import FuncAnimation
 import cv2
 
 
 # --- Math functions ---
 
 def pts_to_homog(point : np.ndarray):
-    pt = point.copy().reshape(-1,1)
+    pt = point.copy()
+    if pt.ndim == 1:
+        pt = pt.reshape(-1,1)
     n = pt.shape[1]
     return np.vstack((pt, np.ones((1, n))))
 
@@ -79,7 +82,11 @@ def hat_to_twist(xi_hat : np.ndarray):
     R = xi_hat[:3,:3]
     t = xi_hat[:3,3]
     w = unskew(R)
-    xi = np.concat((w.flatten(),t.flatten())).reshape(6,)
+    try:
+        xi = np.concat((w.flatten(),t.flatten())).reshape(6,)
+    except AttributeError:
+        xi = np.concatenate((w.flatten(), t.flatten())).reshape(6,)
+
     return xi
 
 
@@ -350,10 +357,14 @@ def quat_mul(q1: np.ndarray, q2: np.ndarray):
 
 def plot_pose(ax: Axes3D, H, length=0.2, lines=None, **kwargs):
     o = H[:3, 3]
-
-    x = np.concat((o, o + length * H[:3, 0]))
-    y = np.concat((o, o + length * H[:3, 1]))
-    z = np.concat((o, o + length * H[:3, 2]))
+    try:
+        x = np.concat((o, o + length * H[:3, 0]))
+        y = np.concat((o, o + length * H[:3, 1]))
+        z = np.concat((o, o + length * H[:3, 2]))
+    except AttributeError:
+        x = np.concatenate((o, o + length * H[:3, 0]))
+        y = np.concatenate((o, o + length * H[:3, 1]))
+        z = np.concatenate((o, o + length * H[:3, 2]))
 
     if lines is None:
         # init
@@ -569,7 +580,7 @@ def condition_cv_img(img : np.ndarray):
 # --- Class definitions ---
 
 class SimpleRobot:
-    def __init__(self, joint_axes, joint_positions, joint_values, M = np.eye(4)):
+    def __init__(self, joint_axes, joint_positions, joint_values, TCP = np.eye(4)):
         """
         init args are home config
         ----------------------------
@@ -582,7 +593,7 @@ class SimpleRobot:
         self.joint_positions = [np.array(q, dtype=float) for q in joint_positions]
         self.joint_positions = np.array(self.joint_positions).T
         self.joint_values = np.array(joint_values).flatten()
-        self.EE_pose = np.array(M, dtype=float)
+        self.EE_pose = np.array(TCP, dtype=float)
         self.EE_pose[:3,3] = np.array([self.joint_positions[:,-1]]).flatten()
         self.EE_init = self.EE_pose.copy()
         self.n = len(joint_axes)
@@ -955,7 +966,7 @@ class Camera:
             img = img[:3,:]
             self.plot_points_3D(img,size=10,ax=ax)
 
-
+#------------------Quaternion---------------------------------------
 class Quaternion:
     def __init__(self, w, x, y, z):
         self.w = float(w)
@@ -1045,9 +1056,170 @@ class Quaternion:
             [    2*(x*y + z*w), 1 - 2*(x**2 + z**2),     2*(y*z - x*w)],
             [    2*(x*z - y*w),     2*(y*z + x*w), 1 - 2*(x**2 + y**2)]
         ], dtype=float)
+    
+    def copy(self):
+        return Quaternion(self.w,self.x,self.y,self.z)
 
     def __repr__(self):
         return f"Quaternion({self.w}, {self.x}, {self.y}, {self.z})"
+    
+
+# --- Dual Quaternion ---
+
+class DualQuaternion:
+    """
+    dq = qR + eps qD
+    qR, qD are Quaternion
+    Works for non-unit dual quaternions
+    """
+
+    def __init__(self, qR : Quaternion, qD : Quaternion):
+        self.qR = qR
+        self.qD = qD
+
+    # ---------- constructors ----------
+
+    @staticmethod
+    def from_rotation_translation(q, t):
+        t_q = Quaternion(0.0, *t)
+        qd = 0.5 * (t_q * q)
+        return DualQuaternion(q, qd)
+
+    def copy(self):
+        return DualQuaternion(self.qR, self.qD)
+
+    # ---------- unary ops ----------
+
+    def __pos__(self):
+        return self
+
+    def __neg__(self):
+        return DualQuaternion(-self.qR, -self.qD)
+
+    # spatial conjugation
+    def __invert__(self):
+        return DualQuaternion(~self.qR, ~self.qD)
+
+    def star(self):
+        return ~self
+
+    # dual conjugation
+    def bar(self):
+        return DualQuaternion(self.qR, -self.qD)
+
+    # total conjugation
+    def total_conj(self):
+        return self.bar().star()
+
+    # ---------- addition ----------
+
+    def __add__(self, other):
+        if isinstance(other, DualQuaternion):
+            return DualQuaternion(self.qR + other.qR,
+                                  self.qD + other.qD)
+        return NotImplemented
+
+    def __sub__(self, other):
+        return self + (-other)
+
+    # ---------- multiplication ----------
+
+    def __mul__(self, other):
+        if isinstance(other, DualQuaternion):
+            qr = self.qR * other.qR
+            qd = self.qR * other.qD + self.qD * other.qR
+            return DualQuaternion(qr, qd)
+        elif isinstance(other, (int, float)):
+            return DualQuaternion(self.qR * other,
+                                  self.qD * other)
+        return NotImplemented
+
+    def __rmul__(self, other):
+        if isinstance(other, (int, float)):
+            return self * other
+        return NotImplemented
+
+    # ---------- inverse ----------
+
+    def inverse(self):
+        """
+        General inverse: valid for non-unit dual quaternions
+        """
+        qr_inv = self.qR.inverse()
+        qd_inv = -(qr_inv * self.qD * qr_inv)
+        return DualQuaternion(qr_inv, qd_inv)
+
+    def __rtruediv__(self, other):
+        if other == 1:
+            return self.inverse()
+        return NotImplemented
+
+    # ---------- action on point ----------
+
+    def __matmul__(self, p):
+        """
+        Apply transform to a 3D point
+        p: 3-vector
+        """
+        p_q = Quaternion(0.0, *p)
+        p_dq = DualQuaternion(Quaternion(1,0,0,0), p_q)
+        res = self * p_dq * self.inverse()
+        return res.qD.v
+
+    # ---------- matrices ----------
+
+    def to_homogeneous(self):
+        """
+        4x4 homogeneous transform
+        Handles non-unit qR correctly
+        """
+        n2 = self.qR.norm()**2
+
+        # rotation from normalized qR
+        qn : Quaternion = self.qR / np.sqrt(n2)
+        R = qn.to_rot_matrix()
+
+        # translation
+        t = 2 * (self.qD * self.qR.star()).v / n2
+
+        T = np.eye(4)
+        T[:3,:3] = R
+        T[:3, 3] = t
+        return T
+
+    # ---------- geometry ----------
+
+    def translation(self):
+        n2 = self.qR.norm()**2
+        return 2 * (self.qD * self.qR.star()).v / n2
+
+    def rotation_axis_angle(self, threshold = 1e-8):
+        qn : Quaternion = self.qR / self.qR.norm()
+        angle = 2 * np.arccos(qn.w)
+        s = np.linalg.norm(qn.v)
+
+        if s < threshold:
+            return np.array([1.0, 0.0, 0.0]), 0.0
+
+        return qn.v / s, angle
+
+    def screw_parameters(self):
+        """
+        Works for general rigid transforms
+        """
+        axis, angle = self.rotation_axis_angle()
+        t = self.translation()
+
+        if angle == 0.0:
+            return axis, np.zeros(3), np.inf
+
+        pitch = np.dot(axis, t) / angle
+        moment = 0.5 * np.cross(t, axis)
+        return axis, moment, pitch
+
+    def __repr__(self):
+        return f"DualQuaternion(qR={self.qR}, qD={self.qD})"
+
 
 
 # --- Subclasses ---
@@ -1078,10 +1250,10 @@ class UR3e(SimpleRobot):
         ]
 
         
-        M_home = np.eye(4)
+        EE_frame_wrt_base = np.eye(4)
         R_mat = Rot.from_euler('xyz', [0,np.pi/2,0]).as_matrix()
-        M_home[:3,:3] = R_mat  # example home TCP pos
-        M_home[:3,3] = np.array([0.120-0.093+0.083+0.082, 0, 0.152+0.244+0.213+0.083])
+        EE_frame_wrt_base[:3,:3] = R_mat  # example home TCP pos
+        EE_frame_wrt_base[:3,3] = np.array([0.120-0.093+0.083+0.082, 0, 0.152+0.244+0.213+0.083])
         joint_values = np.zeros(7)
-        super().__init__(axes, positions, joint_values,M_home)
+        super().__init__(axes, positions, joint_values,EE_frame_wrt_base)
         self.home_joints = np.zeros(6)

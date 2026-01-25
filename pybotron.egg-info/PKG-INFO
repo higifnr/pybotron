@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pybotron
-Version: 0.2.1
+Version: 0.3.0
 Summary: a package that makes simulating robots on python more like matlab
 Author-email: higifnr <abdelhakimboubaker6@gmail.com>
 License: MIT
