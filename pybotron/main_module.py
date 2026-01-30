@@ -248,9 +248,7 @@ def interaction_matrix(features : np.ndarray, points : np.ndarray, form ='points
             1+y*y,  -x*y,   -x, np.zeros(n),    -1/Z,   y/Z            
         ])
     
-    if config == "eye_in_hand":
-        pass
-    else:
+    if config != "eye_in_hand":
         L[:,:3] *= -1
 
     return L
@@ -774,7 +772,6 @@ class Camera:
 
         # Pose: camera wrt world
         self.pose = np.eye(4) if pose is None else np.asarray(pose, dtype=float)
-        self.T_cw = np.linalg.inv(self.pose)
         self.artists = {"camera_body": None,
                         "image_plane": None,
                         "image_points": None}
@@ -824,7 +821,7 @@ class Camera:
         """
         N = pts_abs.shape[1]
         pts_h = np.vstack((pts_abs, np.ones((1, N))))
-        projected_points = self.T_cw @ pts_h
+        projected_points = inv(self.pose) @ pts_h
         return projected_points[:3, :]
 
     def set_pose(self, pose : np.ndarray):
@@ -986,6 +983,9 @@ class Camera:
 
         
     def plot_camera_full(self, pts :np.ndarray = None, scale=0.05, ax=None, **kwargs ):
+        """
+        ``pts`` : points in world frame
+        """
         self.plot_camera(scale=scale,ax=ax, **kwargs )
         self.plot_img_plane(ax)
         if pts is not None:
