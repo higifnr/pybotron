@@ -1,7 +1,7 @@
 # ==============================
 # Welcome to pybotron! 
 # a Python package meant for making Robotics / Vision simulation easier and matlab-like
-# includes: Dual Quaternions, Quaternions, Linear Algebra, Plotting
+# includes: Dual Quaternions, Quaternions, Linear Algebra, Plotting, Plücker Lines
 # ==============================
 
 # --- System / Math ---
@@ -1027,16 +1027,46 @@ class Quaternion:
     def __add__(self,other):
         if isinstance(other, Quaternion):
             return Quaternion(self.w + other.w, self.x + other.x, self.y + other.y, self.z + other.z)
-        return NotImplemented
+        
+        elif isinstance(other, np.ndarray):
+            v = other.flatten(order="F")
+            q = Quaternion(v[0],v[1],v[2],v[3])
+            return self + q
+
+        else:
+            raise TypeError("Only Quaterions and numpy vectors are allowed in addition") 
+        
+    def __radd__(self,other):
+        if isinstance(other, np.ndarray):
+            v = other.flatten(order="F")
+            q = Quaternion(v[0],v[1],v[2],v[3])
+            return self + q
+        else:
+            raise TypeError("Only Quaterions and numpy vectors are allowed in addition") 
+            
     
     # Quaternion subtraction
     def __sub__(self,other):
         if isinstance(other, Quaternion):
             return self + (-other)
-        return NotImplemented
+        elif isinstance(other, np.ndarray):
+            v = other.flatten(order="F")
+            q = Quaternion(v[0],v[1],v[2],v[3])
+            return self - q
+        else:
+            raise TypeError("Only Quaterions and numpy vectors are allowed in subtraction") 
+        
+    def __radd__(self,other):
+        if isinstance(other, np.ndarray):
+            v = other.flatten(order="F")
+            q = Quaternion(v[0],v[1],v[2],v[3])
+            return q - self
+        else:
+            raise TypeError("Only Quaterions and numpy vectors are allowed in subtraction")
 
     # Quaternion multiplication or scalar multiplication
     def __mul__(self, other):
+
         if isinstance(other, Quaternion):
             w1, x1, y1, z1 = self.w, self.x, self.y, self.z
             w2, x2, y2, z2 = other.w, other.x, other.y, other.z
@@ -1045,29 +1075,61 @@ class Quaternion:
             y = w1*y2 - x1*z2 + y1*w2 + z1*x2
             z = w1*z2 + x1*y2 - y1*x2 + z1*w2
             return Quaternion(w, x, y, z)
+        
         elif isinstance(other, (int, float)):
             return Quaternion(self.w*other, self.x*other, self.y*other, self.z*other)
-        return NotImplemented
+        
+        elif isinstance(other, np.ndarray):
+            v = other.flatten(order="F")
+            q = Quaternion(v[0],v[1],v[2],v[3])
+            return self * q
+
+        else:
+            raise TypeError("Only Quaterions and numpy vectors are allowed in multiplication") 
 
     # Reflected multiplication: float * quaternion
     def __rmul__(self, other):
+
         if isinstance(other, (int, float)):
             return self * other
-        return NotImplemented
+        
+        elif isinstance(other, np.ndarray):
+            v = other.flatten(order="F")
+            q = Quaternion(v[0],v[1],v[2],v[3])
+            return self * q
+
+        else:
+            raise TypeError("Only Quaterions and numpy vectors are allowed in multiplication") 
 
     # Quaternion division or scalar division
     def __truediv__(self, other):
+
         if isinstance(other, Quaternion):
             return self * other.inverse()
+        
         elif isinstance(other, (int, float)):
             return Quaternion(self.w/other, self.x/other, self.y/other, self.z/other)
-        return NotImplemented
+        
+        elif isinstance(other, np.ndarray):
+            v = other.flatten(order="F")
+            q = Quaternion(v[0],v[1],v[2],v[3])
+            return self / q
+
+        else:
+            raise TypeError("Only Quaterions and numpy vectors are allowed in division") 
 
     # Reflected division: float / quaternion
     def __rtruediv__(self, other):
         if isinstance(other, (int, float)):
             return self.inverse() * other
-        return NotImplemented
+        
+        elif isinstance(other, np.ndarray):
+            v = other.flatten(order="F")
+            q = Quaternion(v[0],v[1],v[2],v[3])
+            return q / self
+
+        else:
+            raise TypeError("Only Quaterions and numpy vectors are allowed in division") 
 
     # Quaternion inverse
     def inverse(self):
@@ -1162,13 +1224,75 @@ class DualQuaternion:
     # ---------- addition ----------
 
     def __add__(self, other):
+
         if isinstance(other, DualQuaternion):
             return DualQuaternion(self.qR + other.qR,
                                   self.qD + other.qD)
-        return NotImplemented
+        
+        elif isinstance(other, np.ndarray):
+            if other.ndim == 1:
+                qR = Quaternion(other[0],other[1],other[2],other[3])
+                qD = Quaternion(other[4],other[5],other[6],other[7])
+            else:
+                v = other.flatten(order="F")
+                qR = Quaternion(v[0],v[1],v[2],v[3])
+                qD = Quaternion(v[4],v[5],v[6],v[7])
+
+            return DualQuaternion(self.qR + qR,
+                                  self.qD + qD)
+        
+        else:
+            raise TypeError("Only DualQuaterions and numpy vectors / matrices are allowed in addition") 
+        
+    def __radd__(self, other):
+        if isinstance(other, np.ndarray):
+            if other.ndim == 1:
+                qR = Quaternion(other[0],other[1],other[2],other[3])
+                qD = Quaternion(other[4],other[5],other[6],other[7])
+            else:
+                v = other.flatten(order="F")
+                qR = Quaternion(v[0],v[1],v[2],v[3])
+                qD = Quaternion(v[4],v[5],v[6],v[7])
+
+            return DualQuaternion(self.qR + qR, self.qD + qD)
+        
+        else:
+            raise TypeError("Only DualQuaterions and numpy vectors / matrices are allowed in addition") 
 
     def __sub__(self, other):
-        return self + (-other)
+        if isinstance(other, DualQuaternion):
+            return DualQuaternion(self.qR - other.qR,
+                                  self.qD - other.qD)
+        
+        elif isinstance(other, np.ndarray):
+            if other.ndim == 1:
+                qR = Quaternion(other[0],other[1],other[2],other[3])
+                qD = Quaternion(other[4],other[5],other[6],other[7])
+            else:
+                v = other.flatten(order="F")
+                qR = Quaternion(v[0],v[1],v[2],v[3])
+                qD = Quaternion(v[4],v[5],v[6],v[7])
+
+            return DualQuaternion(self.qR - qR,
+                                  self.qD - qD)
+        
+        else:
+            raise TypeError("Only DualQuaterions and numpy vectors / matrices are allowed in subtraction") 
+    
+    def __rsub__(self, other):
+        if isinstance(other, np.ndarray):
+            if other.ndim == 1:
+                qR = Quaternion(other[0],other[1],other[2],other[3])
+                qD = Quaternion(other[4],other[5],other[6],other[7])
+            else:
+                v = other.flatten(order="F")
+                qR = Quaternion(v[0],v[1],v[2],v[3])
+                qD = Quaternion(v[4],v[5],v[6],v[7])
+
+            return DualQuaternion(self.qR - qR, self.qD - qD)
+        
+        else:
+            raise TypeError("Only DualQuaterions and numpy vectors / matrices are allowed in subtraction") 
 
     # ---------- multiplication ----------
 
@@ -1180,12 +1304,38 @@ class DualQuaternion:
         elif isinstance(other, (int, float)):
             return DualQuaternion(self.qR * other,
                                   self.qD * other)
-        return NotImplemented
+        elif isinstance(other, np.ndarray):
+            if other.ndim == 1:
+                qR = Quaternion(other[0],other[1],other[2],other[3])
+                qD = Quaternion(other[4],other[5],other[6],other[7])
+            else:
+                v = other.flatten(order="F")
+                qR = Quaternion(v[0],v[1],v[2],v[3])
+                qD = Quaternion(v[4],v[5],v[6],v[7])
+
+            dq = DualQuaternion(qR,qD)
+            return self*dq
+
+        else:
+            raise TypeError("Only DualQuaterions, floats/ints, and numpy vectors / matrices are allowed in multiplication") 
 
     def __rmul__(self, other):
         if isinstance(other, (int, float)):
             return self * other
-        return NotImplemented
+        elif isinstance(other, np.ndarray):
+            if other.ndim == 1:
+                qR = Quaternion(other[0],other[1],other[2],other[3])
+                qD = Quaternion(other[4],other[5],other[6],other[7])
+            else:
+                v = other.flatten(order="F")
+                qR = Quaternion(v[0],v[1],v[2],v[3])
+                qD = Quaternion(v[4],v[5],v[6],v[7])
+
+            dq = DualQuaternion(qR,qD)
+            return dq*self
+
+        else:
+            raise TypeError("Only DualQuaterions, floats/ints, and numpy vectors / matrices are allowed in multiplication") 
 
     # ---------- inverse ----------
 
@@ -1196,11 +1346,43 @@ class DualQuaternion:
         qr_inv = self.qR.inverse()
         qd_inv = -(qr_inv * self.qD * qr_inv)
         return DualQuaternion(qr_inv, qd_inv)
+    
+    def __truediv__(self, other):
+        if isinstance(other, (int, float)):
+            return self * other.inverse()
+        elif isinstance(other, np.ndarray):
+            if other.ndim == 1:
+                qR = Quaternion(other[0],other[1],other[2],other[3])
+                qD = Quaternion(other[4],other[5],other[6],other[7])
+            else:
+                v = other.flatten(order="F")
+                qR = Quaternion(v[0],v[1],v[2],v[3])
+                qD = Quaternion(v[4],v[5],v[6],v[7])
+
+            dq = DualQuaternion(qR,qD)
+            return self * dq.inverse()
+        
+        else:
+            raise TypeError("Only DualQuaterions, floats/ints, and numpy vectors / matrices are allowed in division") 
+
 
     def __rtruediv__(self, other):
-        if other == 1:
-            return self.inverse()
-        return NotImplemented
+        if isinstance(other, (int, float)):
+            return other * self.inverse()
+        elif isinstance(other, np.ndarray):
+            if other.ndim == 1:
+                qR = Quaternion(other[0],other[1],other[2],other[3])
+                qD = Quaternion(other[4],other[5],other[6],other[7])
+            else:
+                v = other.flatten(order="F")
+                qR = Quaternion(v[0],v[1],v[2],v[3])
+                qD = Quaternion(v[4],v[5],v[6],v[7])
+
+            dq = DualQuaternion(qR,qD)
+            return dq * self.inverse()
+        
+        else:
+            raise TypeError("Only DualQuaterions, floats/ints, and numpy vectors / matrices are allowed in division") 
 
     # ---------- action on point ----------
 
