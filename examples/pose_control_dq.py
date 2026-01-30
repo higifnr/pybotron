@@ -13,6 +13,7 @@ robot = UR3e()
 q = np.zeros((1,7)).flatten()
 
 H_c = robot.get_EE()
+
 cam_c = Camera(pose= H_c)
 
 
@@ -25,30 +26,10 @@ t_d = H_c[:3,3] + np.array([0,-0.1,0]).T
 H_d = np.block([[R_d,t_d.reshape(3,1)],
               [0,0,0,1]])
 
+dq_d : DualQuaternion = matrix_to_dq(H_d)
 
 cam_d = Camera(pose= H_d)
 
-
-width=2*cam_d.u0/cam_d.ku;height=2*cam_d.v0/cam_d.kv
-
-r,p,y = np.random.rand(3,)
-R_cube = RPY_to_R(r,p,y)
-t_cube = t_d + 0.3*(np.random.rand(1,) + 1) * cam_d.principle_axis
-H_cube = np.block([[R_cube,t_cube.reshape(3,1)],
-              [0,0,0,1]])
-vertices = generate_cube(H_cube,0.1)
-n = vertices.shape[1]
-
-px_d = cam_d.project_to_pixels(vertices)
-px_c = cam_c.project_to_pixels(vertices)
-
-
-img_d = H_d @ np.vstack([cam_d.project_to_image_plane(vertices),np.ones((1,vertices.shape[1]))])
-img_d = img_d[:3,:]
-
-s_d = inv(cam_d.K) @ np.vstack((px_d, np.ones((1, n))))
-s_d = s_d.reshape(-1,n)
-s_d = s_d[:2,:]
 
 #--------------sim params------------------
 sim_time = 10
@@ -61,52 +42,49 @@ Kp = 100
 
 
 #----------- static artists-----------------
-cam_d.plot_camera_full(pts=vertices, scale = cam_scale, ax=ax, alpha = 0.5 , linestyle='--')
-cam_d_artist = cam_d.get_artists()
-plot_cube(vertices,ax=ax)
+cam_d.plot_camera(scale = cam_scale, ax=ax, alpha = 0.5 , linestyle='--')
+static_cam = cam_d.get_artists()
 #------------------------------------------
 
 #--------------plot update function---------------
 def update(frame):
-    global q,artists
-    #equal_axes(ax)
+    global q, artists, static_cam, Kp
+    equal_axes(ax)
 
-    # Update features
-    px_c = cam_c.project_to_pixels(vertices)
-    s_c = inv(cam_c.K) @ np.vstack((px_c, np.ones((1, n))))
-    s_c = s_c.reshape(-1,n)
-    s_c = s_c[:2,:]
+    # Compute error
+    H_c = robot.get_EE()
+    dq_c : DualQuaternion = matrix_to_dq(H_c)
+    dq_err : DualQuaternion = ~dq_d * dq_c
+    u, theta = dq_err.rotation_axis_angle()
+    R_err, t_err = H_to_Rt(dq_err.to_homogeneous())
+    twist_err = np.block([theta*u.T, R_err.T @ t_err])
 
-    # Compute control law
-    e = (s_c-s_d).flatten(order='F')
-
-    L = interaction_matrix(s_c,cam_c.world_to_camera(vertices))
-
-    e_dot =  -Kp * e
-
-    xi = pinv(L) @ e_dot
-    xi_out = adj(cam_c.pose) @ xi
+    T = np.block([
+                [R_d, np.zeros((3,3))] , 
+                [skew(t_d)@R_d, R_d]
+                ])
+    
+    xi_err = - Kp *  T @ twist_err
     
     # Compute joint update
     J = robot.jacobian()
-    q_dot = pinv(J) @ xi_out
+    q_dot = Kp * pinv(J) @ xi_err
     q_dot = clamp(q_dot, 3)
     
     # Update joints
-    q = q + dt * q_dot.flatten()
+    q[:] = q + dt * q_dot.flatten()
     
     # Update robot body line
     robot.plot(q, ax=ax)
 
-    # Update camera pose
     cam_c.set_pose(robot.get_EE())
-    cam_c.plot_camera_full(pts=vertices, scale = cam_scale, ax=ax)
+    cam_c.plot_camera(scale = cam_scale, ax=ax)
 
-    # Get artists (to update plot with)
+
     robot_art = robot.get_artists()
     cam_art = cam_c.get_artists()
     
-    artists = robot_art + cam_art + cam_d_artist
+    artists = robot_art + cam_art + static_cam
 
     return artists
 #------------------------------------------

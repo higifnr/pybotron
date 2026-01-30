@@ -219,8 +219,19 @@ def clamp(v: np.ndarray, limit: float):
 
 
 
-def interaction_matrix(features, points : np.ndarray):
-    """pts : 3D pts wrt cam"""
+def interaction_matrix(features : np.ndarray, points : np.ndarray, form ='points', config ='eye_in_hand'):
+    """ 
+    Inputs
+    ---
+    ``features`` : camera image features (vector)
+    ``points`` : 3D points expressed in cam coord frame (column stacked)
+    ``form`` : type of feature that interaction matrix acts on (points, lines..)
+    ``config`` : eye-in-hand or eye-to-hand
+
+    Outputs
+    ---
+    ``L`` : interaction matrix acting on twists of the form [w;v]
+    """
     x = features[0,:]
     y = features[1,:]
     Z = points[2,:]
@@ -228,20 +239,26 @@ def interaction_matrix(features, points : np.ndarray):
     n = points.shape[1]
     L = np.zeros((2*n, 6))
 
-    L[0::2, :] = np.column_stack([
-        x*y,    -1-x*x,    y,   -1/Z,   np.zeros(n),    x/Z            
-    ])
+    if form == "points":
+        L[0::2, :] = np.column_stack([
+            x*y,    -1-x*x,    y,   -1/Z,   np.zeros(n),    x/Z            
+        ])
 
-    L[1::2, :] = np.column_stack([
-        1+y*y,  -x*y,   -x, np.zeros(n),    -1/Z,   y/Z            
-    ])
+        L[1::2, :] = np.column_stack([
+            1+y*y,  -x*y,   -x, np.zeros(n),    -1/Z,   y/Z            
+        ])
+    
+    if config == "eye_in_hand":
+        pass
+    else:
+        L[:,:3] *= -1
 
     return L
 
 
 # --- Quaternion Math ---
 
-def matrix_to_dq(H: np.ndarray):
+def matrix_to_dq(H: np.ndarray, return_type="DualQuaternion"):
     """Convert 4x4 homogeneous transformation matrix to unit dual quaternion"""
     if H.shape != (4, 4):
         raise ValueError("Expected 4x4 matrix")
@@ -282,8 +299,18 @@ def matrix_to_dq(H: np.ndarray):
     # Dual quaternion from translation
     q_t = np.array([0, t[0], t[1], t[2]])
     q_d = 0.5 * quat_mul(q_t, q_r)
+
+    if return_type == "DualQuaternion":
+        qR = Quaternion(q_r[0],q_r[1],q_r[2],q_r[3])
+        qD = Quaternion(q_d[0],q_d[1],q_d[2],q_d[3])
+        return DualQuaternion(qR, qD)
+    if return_type == "numpy":
+        return np.concatenate([q_r, q_d])
     
-    return np.concatenate([q_r, q_d])
+    qR = Quaternion(q_r[0],q_r[1],q_r[2],q_r[3])
+    qD = Quaternion(q_d[0],q_d[1],q_d[2],q_d[3])
+    return DualQuaternion(qR, qD)
+    
 
 def dq_to_matrix(dq: np.ndarray):
     """Convert unit dual quaternion (8-vector) to 4x4 matrix"""
@@ -975,6 +1002,8 @@ class Quaternion:
         self.z = float(z)
         self.v = np.array([self.x, self.y, self.z], dtype=float)
 
+    def to_array(self):
+        return np.array([self.w,self.x,self.y,self.z])
         
     def __pos__(self):
         return self
@@ -1073,20 +1102,39 @@ class DualQuaternion:
     Works for non-unit dual quaternions
     """
 
-    def __init__(self, qR : Quaternion, qD : Quaternion):
+    def __init__(self, qR, qD):
+        if isinstance(qR,np.ndarray):
+            self.qR = Quaternion(qR[0],qR[1],qR[2],qR[3])
+        if isinstance(qD,np.ndarray):
+            self.qD = Quaternion(qD[0],qD[1],qD[2],qD[3])
+            
         self.qR = qR
         self.qD = qD
 
     # ---------- constructors ----------
 
     @staticmethod
-    def from_rotation_translation(q, t):
+    def from_quat_and_translation(q, t):
         t_q = Quaternion(0.0, *t)
         qd = 0.5 * (t_q * q)
         return DualQuaternion(q, qd)
 
     def copy(self):
         return DualQuaternion(self.qR, self.qD)
+    
+    def to_array(self,form="vector"):
+        if form == "vector":
+            return np.append(self.qR.to_array(), self.qD.to_array())
+        else:
+            return np.hstack(self.qR.to_array().reshape(-1,1),self.qD.to_array().reshape(-1,1))
+
+    # ---------- updaters ----------
+
+    def from_quat_and_translation(self, q, t):
+        t_q = Quaternion(0.0, *t)
+        qd = 0.5 * (t_q * q)
+        self.qR = q
+        self.qD = qd
 
     # ---------- unary ops ----------
 
@@ -1094,18 +1142,18 @@ class DualQuaternion:
         return self
 
     def __neg__(self):
-        return DualQuaternion(-self.qR, -self.qD)
+        return DualQuaternion(-(self.qR), -(self.qD))
 
     # spatial conjugation
     def __invert__(self):
-        return DualQuaternion(~self.qR, ~self.qD)
+        return DualQuaternion(self.qR.star(), self.qD.star())
 
     def star(self):
         return ~self
 
     # dual conjugation
     def bar(self):
-        return DualQuaternion(self.qR, -self.qD)
+        return DualQuaternion(self.qR, -(self.qD))
 
     # total conjugation
     def total_conj(self):
