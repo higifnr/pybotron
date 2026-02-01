@@ -1,3 +1,4 @@
 /.vscode
 /build
 /pybotron.egg-info
+/pybotron/__pycache__

@@ -19,7 +19,7 @@ Custom classes with animation friendly methods, including:
 - Quaternion: with extremely convenient and short operations syntax.
 - DualQuaternion: with extremely convenient and short operations syntax, as well as methods for change of form
 
-Mathematical functions (mainly linear algebra) that should have had a simple one-word function in some famous package (but they don't... ) includig:
+Mathematical functions (mainly linear algebra) that should have had a simple one-word function in some famous package (but they don't... ) including:
 
 - Skew symmetric matrix (axiator) of a vector
 - Rodrigues formula
