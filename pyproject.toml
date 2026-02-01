@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pybotron" 
-version = "1.0.3"
+version = "1.0.4"
 description = "a package that makes simulating robots on python more like matlab"
 readme = "README.md"
 requires-python = ">=3.8"

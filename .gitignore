@@ -2,3 +2,4 @@
 /build
 /pybotron.egg-info
 /pybotron/__pycache__
+/dist
