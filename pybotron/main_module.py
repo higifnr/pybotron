@@ -9,12 +9,10 @@ import numpy as np
 from numpy import sin, cos, sqrt
 from numpy.linalg import norm, pinv, inv
 from scipy.linalg import expm, logm
-from scipy.spatial.transform import Rotation as Rot
 
 # --- Plotting / Visualization ---
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Line3D
 import cv2
 
@@ -1652,7 +1650,7 @@ class UR3e(SimpleRobot):
 
         
         EE_frame_wrt_base = np.eye(4)
-        R_mat = Rot.from_euler('xyz', [0,np.pi/2,0]).as_matrix()
+        R_mat = RPY_to_R(0,np.pi/2,0)
         EE_frame_wrt_base[:3,:3] = R_mat  # example home TCP pos
         EE_frame_wrt_base[:3,3] = np.array([0.120-0.093+0.083+0.082, 0, 0.152+0.244+0.213+0.083])
         joint_values = np.zeros(7)

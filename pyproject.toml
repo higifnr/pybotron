@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pybotron" 
-version = "1.0.0"
+version = "1.0.1"
 description = "a package that makes simulating robots on python more like matlab"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [{name="higifnr", email="abdelhakimboubaker6@gmail.com"}]
 license = {text="MIT"}
-dependencies = ["numpy", "scipy", "matplotlib", "opencv-python"] # use the name from pip install "pacakge_name"
+dependencies = ["numpy", "matplotlib", "opencv-python"] # use the name from pip install "pacakge_name"
