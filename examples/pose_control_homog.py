@@ -23,7 +23,7 @@ t_d = H_c[:3,3] - 0.2*np.random.rand(3,)
 R_d = H_c[:3,:3]
 t_d = H_c[:3,3] + np.array([0,-0.1,0]).T
 H_d = np.block([[R_d,t_d.reshape(3,1)],
-              [0,0,0,1]])
+                [0,0,0,1]])
 
 
 cam_d = Camera(pose= H_d)

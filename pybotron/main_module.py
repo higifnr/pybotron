@@ -171,6 +171,11 @@ def H_to_Rt(H: np.ndarray):
     R, t = H[:3,:3], H[:3,3]
     return R, t
 
+def Rt_to_H(R: np.ndarray,t: np.ndarray):
+    H = np.zeros((4,4))
+    H[:3,:3] = R; H[:3,3] = t.flatten(); H[3,3] = 1
+    return H
+
 def generate_cube(pose = None, a=0.3):
     """
     Returns cube vertices in world coordinates.

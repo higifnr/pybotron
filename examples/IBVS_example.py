@@ -12,12 +12,11 @@ cam_c = Camera(pose= H_c)
 
 R_d = RPY_to_R(pi/12, 0,0) @ H_c[:3,:3]
 R_d = np.where(abs(R_d) > 1e-5, R_d, 0)
-t_d = H_c[:3,3] + np.array([0.1,0,0])#- 0.2*np.random.rand(3,)
+t_d = H_c[:3,3] - 0.2*np.random.rand(3,)
 
 R_d = H_c[:3,:3]
 t_d = H_c[:3,3] + np.array([0,-0.1,0]).T
-H_d = np.block([[R_d,t_d.reshape(3,1)],
-              [0,0,0,1]])
+H_d = Rt_to_H(R_d,t_d)
 
 
 cam_d = Camera(pose= H_d)
@@ -28,8 +27,7 @@ width=2*cam_d.u0/cam_d.ku;height=2*cam_d.v0/cam_d.kv
 r,p,y = np.random.rand(3,)
 R_cube = RPY_to_R(r,p,y)
 t_cube = t_d + 0.3*(np.random.rand(1,) + 1) * cam_d.principle_axis
-H_cube = np.block([[R_cube,t_cube.reshape(3,1)],
-              [0,0,0,1]])
+H_cube = Rt_to_H(R_cube,t_cube)
 vertices = generate_cube(H_cube,0.1)
 n = vertices.shape[1]
 
@@ -37,10 +35,10 @@ px_d = cam_d.project_to_pixels(vertices)
 px_c = cam_c.project_to_pixels(vertices)
 
 
-img_d = H_d @ np.vstack([cam_d.project_to_image_plane(vertices),np.ones((1,vertices.shape[1]))])
+img_d = H_d @  pts_to_homog(cam_d.project_to_image_plane(vertices))
 img_d = img_d[:3,:]
 
-s_d = inv(cam_d.K) @ np.vstack((px_d, np.ones((1, n))))
+s_d = inv(cam_d.K) @ pts_to_homog(px_d)
 s_d = s_d.reshape(-1,n)
 s_d = s_d[:2,:]
 
@@ -77,7 +75,7 @@ def update(frame):
 
     # Update features
     px_c = cam_c.project_to_pixels(vertices)
-    s_c = inv(cam_c.K) @ np.vstack((px_c, np.ones((1, n))))
+    s_c = inv(cam_c.K) @ pts_to_homog(px_c)
     s_c = s_c.reshape(-1,n)
     s_c = s_c[:2,:]
 

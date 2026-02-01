@@ -23,8 +23,7 @@ t_d = H_c[:3,3] - 0.2*np.random.rand(3,)
 
 R_d = H_c[:3,:3]
 t_d = H_c[:3,3] + np.array([0,-0.1,0]).T
-H_d = np.block([[R_d,t_d.reshape(3,1)],
-              [0,0,0,1]])
+H_d = Rt_to_H(R_d,t_d)
 
 dq_d : DualQuaternion = matrix_to_dq(H_d)
 
@@ -58,21 +57,16 @@ def update(frame):
     u, theta = dq_err.rotation_axis_angle()
     R_err, t_err = H_to_Rt(dq_err.to_homogeneous())
     twist_err = np.block([theta*u.T, R_err.T @ t_err])
-
-    T = np.block([
-                [R_d, np.zeros((3,3))] , 
-                [skew(t_d)@R_d, R_d]
-                ])
     
-    xi_err = - Kp *  T @ twist_err
+    xi_err = - Kp *  adj(H_d) @ twist_err
     
     # Compute joint update
     J = robot.jacobian()
-    q_dot = Kp * pinv(J) @ xi_err
+    q_dot = Kp * damped_pinv(J,damp = 0.001) @ xi_err
     q_dot = clamp(q_dot, 3)
     
     # Update joints
-    q[:] = q + dt * q_dot.flatten()
+    q = q + dt * q_dot.flatten()
     
     # Update robot body line
     robot.plot(q, ax=ax)
