@@ -36,6 +36,11 @@ The package includes a handful of demos under the ``/examples`` folder.
 I will be working on and off on a more thourough documentation. Feel free to dig into the code since it's really simple.
 
 ## Installation
+### From PyPI
+```bash
+pip install pybotron
+```
+### From source
 Position yourself in the folder where you want to clone the repo and do:
 
 ```bash
@@ -49,12 +54,9 @@ pip install ./pybotron
 
 Enjoy.
 
-(PyPI release is planned ASAP)
-
 
 ## Roadmap
 
 - Lines interaction matrix implementation
-- PyPI release
 - Better documentation
 - ROS1/2 implementation (this would be **EXTREMELY** convenient)
