@@ -4,7 +4,7 @@ pi = np.pi
 #-------------- plot setup --------------
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.set_xlim([-1, 1]);   ax.set_ylim([-1, 1]);   ax.set_zlim([-1, 1]);   ax.set_box_aspect([1,1,1])
+ax.set_xlim([-0.3, 0.3]);   ax.set_ylim([-0.3, 0.3]);   ax.set_zlim([0, 0.6]);   ax.set_box_aspect([1,1,1])
 artists = []
 cam_scale = 2e-2
 #--------------#--------------#--------------#--------------
@@ -47,16 +47,17 @@ static_cam = cam_d.get_artists()
 #--------------plot update function---------------
 def update(frame):
     global q, artists, static_cam, Kp
-    equal_axes(ax)
 
     # Compute error
     H_c = robot.get_EE()
     err_hat = logm(np.linalg.inv(H_c) @ H_d)
     xi_err = hat_to_twist(err_hat)
+
+    xi_out = adj(H_c)@xi_err
     
     # Compute joint update
     J = robot.jacobian()
-    q_dot = Kp * pinv(J) @ xi_err
+    q_dot = Kp * damped_pinv(J) @ xi_out
     q_dot = clamp(q_dot, 3)
     
     # Update joints
