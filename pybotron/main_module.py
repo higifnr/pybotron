@@ -15,6 +15,7 @@ from scipy.spatial.transform import Rotation as Rot
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
+from mpl_toolkits.mplot3d.art3d import Line3D
 import cv2
 
 
@@ -993,7 +994,7 @@ class Camera:
             img = img[:3,:]
             self.plot_points_3D(img,size=10,ax=ax)
 
-#------------------Quaternion---------------------------------------
+#------------------Quaternion---------------------------
 class Quaternion:
     def __init__(self, w, x, y, z):
         self.w = float(w)
@@ -1450,6 +1451,157 @@ class DualQuaternion:
     def __repr__(self):
         return f"DualQuaternion(qR={self.qR}, qD={self.qD})"
 
+
+#------------------Plücker Line-------------------------
+
+class PluckerLine:
+    def __init__(self, u: np.ndarray, m: np.ndarray, thresh = 0):
+        u = np.asarray(u, dtype=float).reshape(3)
+        m = np.asarray(m, dtype=float).reshape(3)
+
+        nu = np.linalg.norm(u)
+        if nu <= thresh:
+            raise ValueError("Direction vector u cannot be zero")
+
+        u = u / nu
+
+        # Plücker invariant: u · m = 0
+        if np.dot(u , m) != 0:
+            raise ValueError("Invalid Plücker coordinates: u · m must be 0")
+
+        self.u = u
+        self.m = m
+        self.artist = None
+
+    @classmethod
+    def from_point_direction(cls, p: np.ndarray, u: np.ndarray, thresh = 0):
+        p = np.asarray(p, dtype=float).reshape(3)
+        u = np.asarray(u, dtype=float).reshape(3)
+
+        nu = np.linalg.norm(u)
+        if nu <= thresh:
+            raise ValueError("Direction vector u cannot be zero")
+
+        u = u / nu
+        m = np.cross(p, u)
+        return cls(u, m)
+
+    @classmethod
+    def from_vectors(cls, u: np.ndarray, m: np.ndarray):
+        if np.linalg.norm(u) != 1:
+            raise ValueError("Direction vector u must be unit when constructing from vectors (it's for your own good)")
+        return cls(u, m)
+    
+    @classmethod
+    def from_points(cls, p: np.ndarray, q: np.ndarray):
+        p = np.asarray(p, dtype=float).reshape(3)
+        q = np.asarray(q, dtype=float).reshape(3)
+        u = p-q
+        nu = np.linalg.norm(u)
+        if nu == 0:
+            raise ValueError("Points must be distinct when constructing from points")
+        else:
+            u = u/nu
+            m = np.cross(p,u)        
+        return cls(u, m)
+
+    def point(self):
+        """
+        Returns the closest point on the line to the origin
+        """
+        return np.cross(self.u, self.m)
+
+    def project_point(self, p: np.ndarray):
+        """
+        Returns the projection of point ``p`` on the line
+        """
+        p = np.asarray(p, dtype=float).reshape(3)
+        p0 = self.point()
+        return p0 + self.u * (self.u @ (p - p0))
+
+    def distance_to_point(self, p: np.ndarray):
+        """
+        Returns the distance of the line to point ``p``
+        """
+        p = np.asarray(p, dtype=float).reshape(3)
+        return np.linalg.norm(np.cross(p, self.u) - self.m)
+
+    def transform(self, H: np.ndarray):
+        """ 
+        Inputs
+        ---
+        ``H`` : 4x4 Homogenous transform matrix
+
+        Outputs
+        ---
+        ``L_new`` : Transformed line using H
+        """
+
+        H = np.asarray(H, dtype=float).reshape(4, 4)
+        R = H[:3,:3] ; t = H[:3,3]
+
+        u_new = R @ self.u
+        m_new = R @ self.m + np.cross(t, u_new)
+        return PluckerLine(u_new, m_new)
+
+    def as_matrix(self):
+        """
+        Returns the matrix form of the line
+        """
+        Ux = skew(self.u)
+        #Mx = skew(self.m)
+
+        L = np.zeros((4, 4))
+        L[:3, :3] = Ux
+        L[:3, 3] = self.m
+        L[3, :3] = -self.m
+        return L
+    
+    def as_vector(self):
+        """
+        Returns the vector form of the line
+        """
+        return np.concatenate([self.u,self.m])
+    
+    def plot(self, L=1.0, ax : Axes3D = None, **kwargs):
+
+        if ax is None:
+            ax = plt.gca()
+            if not isinstance(ax, Axes3D):
+                fig = plt.figure()
+                ax = fig.add_subplot(111, projection='3d')
+
+        p0 = self.point()
+        p1 = p0 - L * self.u
+        p2 = p0 + L * self.u
+
+        if not hasattr(self, "_artist"):
+            self.artist = None
+
+        if self.artist is None:
+            self.artist = Line3D(
+                [p1[0], p2[0]],
+                [p1[1], p2[1]],
+                [p1[2], p2[2]],
+                **kwargs
+            )
+            ax.add_line(self.artist)
+        else:
+            self.artist.set_data_3d(
+                [p1[0], p2[0]],
+                [p1[1], p2[1]],
+                [p1[2], p2[2]],
+            )
+
+        return self.artist
+
+    def get_artist(self):
+        return self.artist
+    
+    def __repr__(self):
+        return f"PluckerLine(u={self.u}, m={self.m})"
+
+        
 
 
 # --- Subclasses ---
