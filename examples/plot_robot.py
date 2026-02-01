@@ -2,7 +2,7 @@ from pybotron import *
 
 #---- matplotlib figure setup
 fig = plt.figure()
-ax = fig.add_subplot(121, projection='3d')
+ax = fig.add_subplot(111, projection='3d')
 equal_axes(ax)
 #-----------------------------
 

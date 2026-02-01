@@ -1,13 +1,7 @@
 from pybotron import *
 pi = np.pi
 
-#-------------- plot setup --------------
-fig = plt.figure()
-ax = fig.add_subplot(121, projection='3d')
-ax.set_xlim([-1, 1]);   ax.set_ylim([-1, 1]);   ax.set_zlim([-1, 1]);   ax.set_box_aspect([1,1,1])
-artists = []
-cam_scale = 2e-2
-#--------------#--------------#--------------#--------------
+
 
 robot = UR3e()
 q = np.zeros((1,7)).flatten()
@@ -18,7 +12,7 @@ cam_c = Camera(pose= H_c)
 
 R_d = RPY_to_R(pi/12, 0,0) @ H_c[:3,:3]
 R_d = np.where(abs(R_d) > 1e-5, R_d, 0)
-t_d = H_c[:3,3] - 0.2*np.random.rand(3,)
+t_d = H_c[:3,3] + np.array([0.1,0,0])#- 0.2*np.random.rand(3,)
 
 R_d = H_c[:3,:3]
 t_d = H_c[:3,3] + np.array([0,-0.1,0]).T
@@ -56,14 +50,24 @@ dt= 0.016
 N = int(sim_time/dt)
 eps = 1e-1
 crit = eps + 1
-Kp = 100
+Kp = 10
 #------------------------------------------
 
+#-------------- plot setup --------------
+fig = plt.figure()
+ax = fig.add_subplot(121, projection='3d')
+cam_img = fig.add_subplot(122)
+ax.set_xlim([-1, 1]);   ax.set_ylim([-1, 1]);   ax.set_zlim([-1, 1]);   ax.set_box_aspect([1,1,1])
+cam_img.set_xlim(0, cam_c.resolution[0]) ;cam_img.set_ylim(0, cam_c.resolution[1]); cam_img.set_box_aspect(1)
+artists = []
+cam_scale = 2e-2
+#--------------#--------------#--------------#--------------
 
 #----------- static artists-----------------
 cam_d.plot_camera_full(pts=vertices, scale = cam_scale, ax=ax, alpha = 0.5 , linestyle='--')
 cam_d_artist = cam_d.get_artists()
 plot_cube(vertices,ax=ax)
+
 #------------------------------------------
 
 #--------------plot update function---------------
@@ -89,7 +93,7 @@ def update(frame):
     
     # Compute joint update
     J = robot.jacobian()
-    q_dot = pinv(J) @ xi_out
+    q_dot = damped_pinv(J) @ xi_out
     q_dot = clamp(q_dot, 3)
     
     # Update joints
@@ -102,11 +106,15 @@ def update(frame):
     cam_c.set_pose(robot.get_EE())
     cam_c.plot_camera_full(pts=vertices, scale = cam_scale, ax=ax)
 
+    
+    px_c_art = plot_points_2D(px_c,ax=cam_img, anim= True)
+    px_d_art = plot_points_2D(px_d,ax=cam_img,color='b', anim= True)
+
     # Get artists (to update plot with)
     robot_art = robot.get_artists()
     cam_art = cam_c.get_artists()
     
-    artists = robot_art + cam_art + cam_d_artist
+    artists = robot_art + cam_art + cam_d_artist + px_c_art + px_d_art 
 
     return artists
 #------------------------------------------

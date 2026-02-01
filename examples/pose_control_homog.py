@@ -3,7 +3,7 @@ pi = np.pi
 
 #-------------- plot setup --------------
 fig = plt.figure()
-ax = fig.add_subplot(121, projection='3d')
+ax = fig.add_subplot(111, projection='3d')
 ax.set_xlim([-1, 1]);   ax.set_ylim([-1, 1]);   ax.set_zlim([-1, 1]);   ax.set_box_aspect([1,1,1])
 artists = []
 cam_scale = 2e-2

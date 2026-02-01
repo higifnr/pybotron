@@ -254,6 +254,9 @@ def interaction_matrix(features : np.ndarray, points : np.ndarray, form ='points
 
     return L
 
+def damped_pinv(J : np.ndarray, damp = 0.01):
+    return J.T @ np.linalg.inv(J @ J.T + damp**2 * np.eye(J.shape[0]))
+
 
 # --- Quaternion Math ---
 
@@ -552,7 +555,7 @@ def plot_points_3D(points, ax: Axes3D, artist = None, color='r', size=30,**kwarg
         return artist
 
 
-def plot_points_2D(points, ax:Axes3D, color='r', size=30,**kwargs):
+def plot_points_2D(points, ax:Axes3D, color='r', size=30, anim = False,**kwargs):
     """
     Plot 3D points as big dots.
 
@@ -564,12 +567,20 @@ def plot_points_2D(points, ax:Axes3D, color='r', size=30,**kwargs):
     points = np.asarray(points)
     assert points.shape[0] == 2, "points must have shape (2, N)"
 
-    ax.scatter(points[0, :], points[1, :],
-               c=color, s=size,**kwargs)
+    artist = ax.scatter(
+        points[0, :],
+        points[1, :],
+        c=color,
+        s=size,
+        **kwargs
+    )
 
-    ax.set_box_aspect(1)
-    ax.set_xlabel("X"); ax.set_ylabel("Y")
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
     ax.grid(True)
+
+    if anim:
+        return [artist]
 
 
 def render_image(ax :Axes3D, img : np.ndarray, H : np.ndarray , width, height):
@@ -1583,6 +1594,9 @@ class PluckerLine:
                 [p1[0], p2[0]],
                 [p1[1], p2[1]],
                 [p1[2], p2[2]],
+                linestyle='-', 
+                linewidth=1, 
+                color='r',
                 **kwargs
             )
             ax.add_line(self.artist)
@@ -1596,7 +1610,7 @@ class PluckerLine:
         return self.artist
 
     def get_artist(self):
-        return self.artist
+        return [self.artist,]
     
     def __repr__(self):
         return f"PluckerLine(u={self.u}, m={self.m})"
