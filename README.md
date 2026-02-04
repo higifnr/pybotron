@@ -33,7 +33,7 @@ And much much more!
 
 The package includes a handful of demos under the ``/examples`` folder.
 
-I will be working on and off on a more thourough documentation. Feel free to dig into the code since it's really simple.
+I will be working on and off on a more thorough documentation. Feel free to dig into the code since it's really simple.
 
 ## Installation
 ### From PyPI
