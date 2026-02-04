@@ -20,27 +20,70 @@ import cv2
 
 # --- Math functions ---
 
-def pts_to_homog(point : np.ndarray):
-    pt = point.copy()
+def pts_to_homog(points : np.ndarray | list | tuple):
+    """
+    #### Adds an extra row of ones to enable homogenous transforms
+    Inputs
+    ---
+    ``points`` : n dimensional points (column stacked)
+
+    Outputs
+    ---
+    ``points*`` : n+1 dimensional points (column stacked) with last row full of 1
+
+    """
+    pt = np.asarray(points).copy()
     if pt.ndim == 1:
         pt = pt.reshape(-1,1)
     n = pt.shape[1]
     return np.vstack((pt, np.ones((1, n))))
 
-def skew(vector):
-    """Return the skew-symmetric matrix of a 3-vector"""
+def skew(vector : np.ndarray | list | tuple):
+    """
+    #### Returns the skew-symmetric matrix (axiator) of a 3-vector
+    Inputs
+    ---
+    ``vector`` : a 3-vector or 3x1/1x3 matrix
+
+    Outputs
+    ---
+    ``[v]_x`` : skew-symmetric 3x3 matrix (axiator) of ``vector``
+    """
     v = np.asarray(vector).copy().reshape(3)
     return np.array([[0, -v[2], v[1]],
                      [v[2], 0, -v[0]],
                      [-v[1], v[0], 0]])
 
-def unskew(S):
-    w = np.array([S[2,1],S[0,2],S[1,0]]).reshape(3,1)
-    return w
+def unskew(S : np.ndarray):
+    """
+    #### Returns the 3-vector associated to a skew-symmetric matrix
+    Inputs
+    ---
+    ``S`` : skew-symmetric 3x3 matrix
+
+    Outputs
+    ---
+    ``v`` : 3-vector associated to ``S``
+    """
+    v : np.ndarray = np.array([S[2,1],S[0,2],S[1,0]]).reshape(3,1)
+    return v
 
 
-def rot_exp(omega, theta):
-    w = np.asarray(omega).copy().reshape(3,)
+def rot_exp(u, theta):
+    """#### Converts rotation around an axis by an angle to a rotation matrix
+
+    Inputs
+    ---
+    ``u`` : axis of rotation direction vector (3-vector or 3x1/1x3 matri)x
+    ``theta`` : angle of rotation around ``u``
+
+    Outputs
+    ---
+    ``R`` : 3x3 Rotation matrix form of (``u``,``theta``)
+    
+    """    
+
+    w = np.asarray(u).copy().reshape(3,)
     n = np.linalg.norm(w)
     if n == 0:
         return np.eye(3)
@@ -48,8 +91,21 @@ def rot_exp(omega, theta):
     K = skew(w)
     return expm(theta*K)
 
-def rodrigues(omega, theta):
-    w = np.asarray(omega).copy().reshape(3,)
+def rodrigues(u, theta):
+    """
+    #### Converts rotation around an axis by an angle to a rotation matrix using Rodrigues' formula
+
+    Inputs
+    ---
+    ``u`` : axis of rotation direction vector (3-vector or 3x1/1x3 matri)x
+    ``theta`` : angle of rotation around ``u``
+
+    Outputs
+    ---
+    ``R`` : 3x3 Rotation matrix form of (``u``,``theta``)
+    
+    """    
+    w = np.asarray(u).copy().reshape(3,)
     n = np.linalg.norm(w)
     if n == 0:
         return np.eye(3)
@@ -60,15 +116,37 @@ def rodrigues(omega, theta):
 
 
 def twist_to_hat(xi):
-    """Return 4x4 matrix form of a twist vector xi = [w,v]^T ."""
-    w = np.array(xi[0:3]).copy()
-    v = np.array(xi[3:6]).copy()
+    """
+    #### Returns 4x4 matrix form of a twist vector 
+    Inputs
+    ---
+    ``xi`` : twist in [w;v] form
+
+    Outputs
+    ---
+    ``[xi]`` : 4x4 representation of ``xi``
+
+    """
+    Xi = np.array(xi).flatten()
+    w = Xi[0:3]
+    v = Xi[3:6]
     return np.block([
         [skew(w), v.reshape(3,1)],
         [np.zeros((1,4))]
     ])
 
 def adj(H : np.ndarray):
+    """
+    #### Returns 6x6 adjoint of a 4x4 matrix
+    Inputs
+    ---
+    ``H`` : 4x4 matrix
+
+    Outputs
+    ---
+    ``H_bar`` : 6x6 adjoint of ``H``
+
+    """
     R = H[:3,:3]
     t = H[:3,3]
     H_bar = np.block([
@@ -79,6 +157,17 @@ def adj(H : np.ndarray):
     return H_bar 
 
 def hat_to_twist(xi_hat : np.ndarray):
+    """
+    #### Returns 4x4 matrix form of a twist vector 
+    Inputs
+    ---
+    ``[xi]`` : 4x4 representation of a twist
+
+    Outputs
+    ---
+    ``xi`` : 6-vector representation of ``[xi]``
+
+    """
     R = xi_hat[:3,:3]
     t = xi_hat[:3,3]
     w = unskew(R)
@@ -90,8 +179,20 @@ def hat_to_twist(xi_hat : np.ndarray):
     return xi
 
 
-def expm_twist(unit_twist, theta):
-    xi = np.asarray(unit_twist).copy().reshape(6,)
+def expm_twist(unit_screw : np.ndarray , theta : float):
+    """
+    #### Returns 4x4 homogenous transform from a screw
+    Inputs
+    ---
+    ``unit_screw`` : 6-vector or 6x1/1x6 form of unit screw (twist) \\
+    ``theta`` : angle of rotation
+
+    Outputs
+    ---
+    ``T`` : homogenous transform from the screw (``unit_screw``,``theta``)
+
+    """
+    xi = np.asarray(unit_screw).copy().reshape(6,)
     w = xi[:3]
     v = xi[3:]
 
@@ -112,13 +213,33 @@ def expm_twist(unit_twist, theta):
     ])
 
 
-def logm_error(H_c,H_d):
+def logm_error(H_c : np.ndarray,H_d : np.ndarray):
+    """
+    #### Returns the error screw between two poses
+    Inputs
+    ---
+    ``H_c`` : current pose (4x4 homogenous transform matrix) \\
+    ``H_d`` : angle of rotation (4x4 homogenous transform matrix)
+
+    Outputs
+    ---
+    ``xi_err`` : 6-vector form of unit screw (twist)
+    """
     err_hat = logm(inv(H_c) @ H_d)
     xi_err = hat_to_twist(err_hat)
     return xi_err
 
-def logm_se3(H):
-    """SE(3) matrix logarithm with branch cut handling"""
+def logm_se3(H : np.ndarray):
+    """
+    #### Returns log of a 4x4 matrix with boundary condition checking
+    Inputs
+    ---
+    ``H``   : 4x4 matrix 
+    
+    Outputs 
+    --- 
+    ``log(H)`` : 4x4 matrix
+    """
     from scipy.linalg import logm as scipy_logm
     
     R = H[:3, :3]
@@ -134,14 +255,18 @@ def logm_se3(H):
 
 def RPY_to_R(roll, pitch, yaw):
     """
-    Converts roll, pitch, yaw angles to a 3x3 rotation matrix.
-    Angles are in radians.
-
-    Roll  = rotation about X
-    Pitch = rotation about Y
-    Yaw   = rotation about Z
-
-    ZYX order (yaw-pitch-roll)
+    #### Converts roll, pitch, yaw angles to a 3x3 rotation matrix.
+    ##### (Angles are in radians)
+    Inputs
+    ---
+    ``roll``  : rotation about X \\
+    ``pitch`` : rotation about Y \\
+    ``yaw``   : rotation about Z
+    
+    Outputs
+    ---
+    ``R`` : 3x3 rotation matrix with rotations \\
+      applied around x then y then z
     """
 
     Rx = np.array([
@@ -167,22 +292,50 @@ def RPY_to_R(roll, pitch, yaw):
     return R
 
 def H_to_Rt(H: np.ndarray):
-    R, t = H[:3,:3], H[:3,3]
+    """
+    #### Returns the rotation matrix and translation vector from a 4x4 homogenous transform
+    Inputs
+    ---
+    ``H``   : 4x4 homogenous transform matrix 
+    
+    Outputs 
+    --- 
+    ``R`` : 3x3 rotation matrix
+    ``t`` : 3-vector translation vector
+    """
+    R: np.ndarray = H[:3,:3]
+    t: np.ndarray = H[:3,3]
     return R, t
 
 def Rt_to_H(R: np.ndarray,t: np.ndarray):
+    """
+    #### Returns the 4x4 homogenous transform from a rotation matrix and translation vector
+    Inputs
+    ---
+    ``R`` : 3x3 rotation matrix \\
+    ``t`` : 3-vector or 3x1/1x3 matrix of translation vector
+    
+    Outputs 
+    --- 
+    ``H``   : 4x4 homogenous transform matrix 
+
+    """
     H = np.zeros((4,4))
     H[:3,:3] = R; H[:3,3] = t.flatten(); H[3,3] = 1
     return H
 
 def generate_cube(pose = None, a=0.3):
     """
-    Returns cube vertices in world coordinates.
+    #### Returns cube vertices in world coordinates.
+    Inputs
+    ---
 
-    pose : (4, 4) homogeneous transform
-    a    : edge length
+    ``pose`` : (4, 4) homogeneous transform
+    ``a``    : edge length
 
-    Output: (3, 8) array, each column is a vertex
+    Outputs 
+    --- 
+    ``vertices`` : 3x8 matrix, each column is a vertex
     """
 
     if pose is None:
@@ -226,11 +379,12 @@ def clamp(v: np.ndarray, limit: float):
 
 def interaction_matrix(features : np.ndarray, points : np.ndarray, form ='points', config ='eye_in_hand'):
     """ 
+    #### Returns interaction matrix (image Jacobian) between image features and cartesian velocities
     Inputs
     ---
-    ``features`` : camera image features (vector)
-    ``points`` : 3D points expressed in cam coord frame (column stacked)
-    ``form`` : type of feature that interaction matrix acts on (points, lines..)
+    ``features`` : camera image features (vector) \\
+    ``points`` : 3D points expressed in cam coord frame (column stacked) \\
+    ``form`` : type of feature that interaction matrix acts on (points, lines..) \\
     ``config`` : eye-in-hand or eye-to-hand
 
     Outputs
@@ -259,6 +413,9 @@ def interaction_matrix(features : np.ndarray, points : np.ndarray, form ='points
     return L
 
 def damped_pinv(J : np.ndarray, damp = 0.01):
+    """
+    #### Returns the damped pseudo inverse of any given matrix
+    """
     return J.T @ np.linalg.inv(J @ J.T + damp**2 * np.eye(J.shape[0]))
 
 
