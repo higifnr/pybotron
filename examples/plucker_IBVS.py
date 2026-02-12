@@ -40,7 +40,35 @@ img_d = img_d[:3,:]
 
 s_d = inv(cam_d.K) @ pts_to_homog(px_d)
 s_d = s_d.reshape(-1,n)
+
 s_d = s_d[:2,:]
+
+u = np.array([1,1,1]); m = np.cross(np.array([1,0,0]),u)
+
+l = PluckerLine(u,m)
+#l_cam = l.transform(inv(H_d)) # how the cam sees the line
+#cam frame
+l_cam = l.transform(inv(H_d))
+P = np.cross(l_cam.u, l_cam.m) # 3D point closest from C to line
+P = cam_d.f * P/P[2]
+
+
+u_img = l_cam.u.flatten()
+u_img[-1]= 0.0 # projected u on the image plane (it's a vector)
+
+u_img = u_img/np.linalg.norm(u_img) #projecting and normalizing u of l
+u_img = u_img.flatten()
+
+m_img = np.cross(P,u_img) #moment in world frame
+
+l_img = PluckerLine(u_img, m_img) #how the cam sees the line
+#l_img = l_img.transform(H_d)
+#world frame
+P = H_d @ pts_to_homog(P.reshape(-1,1)) #that point in world frame
+P = P[:3,:]
+l_world = PluckerLine(u_img,m_img)
+l_world = l_world.transform(H_d)
+
 
 #--------------sim params------------------
 sim_time = 10
@@ -59,12 +87,16 @@ ax.set_xlim([-1, 1]);   ax.set_ylim([-1, 1]);   ax.set_zlim([-1, 1]);   ax.set_b
 cam_img.set_xlim(0, cam_c.resolution[0]) ;cam_img.set_ylim(0, cam_c.resolution[1]); cam_img.set_box_aspect(1)
 artists = []
 cam_scale = 2e-2
-#--------------#--------------#--------------#--------------
+#--------------#--------------#-----------
 
 #----------- static artists-----------------
-cam_d.plot_camera_full(pts=vertices, scale = cam_scale, ax=ax, alpha = 0.5 , linestyle='--')
+#cam_d.plot_camera_full(pts=P, scale = cam_scale, ax=ax, alpha = 0.5 , linestyle='--')
+cam_d.plot_line(ax,l, L=1, linestyle='--', linewidth=1)
+cam_d.plot_camera(scale = cam_scale, ax=ax, alpha = 0.5 , linestyle='--')
 cam_d_artist = cam_d.get_artists()
 plot_cube(vertices,ax=ax)
+l.plot(2,ax)
+#l_world.plot(1,ax,color = "r")
 
 #------------------------------------------
 
@@ -103,6 +135,7 @@ def update(frame):
     # Update camera pose
     cam_c.set_pose(robot.get_EE())
     cam_c.plot_camera_full(pts=vertices, scale = cam_scale, ax=ax)
+    cam_c.plot_lines(ax,l, color = "r")
 
     
     px_c_art = plot_points_2D(px_c,ax=cam_img, anim= True)
@@ -116,6 +149,7 @@ def update(frame):
 
     return artists
 #------------------------------------------
+
 
 #----------------------- Animation function
 ani = FuncAnimation(fig, update, frames=N, interval=dt*1000, blit=True)

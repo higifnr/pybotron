@@ -60,3 +60,4 @@ Enjoy.
 - Lines interaction matrix implementation
 - Better documentation
 - ROS1/2 implementation (this would be **EXTREMELY** convenient)
+- Universal functions that work on all entities
