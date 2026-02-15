@@ -11,6 +11,7 @@ So you can test your algorithms in an isolated environment without the complexit
 
 ## Features
 
+
 Custom classes with animation friendly methods, including:
 
 - SimpleRobot: a minimal robot class that allows you to create the wireframe of a revolute joint robot. With convenient functionalities such as calculating the Jacobian and plotting. Includes a UR3e subclass as an example.
@@ -28,6 +29,8 @@ Mathematical functions (mainly linear algebra) that should have had a simple one
 - Image Jacobian (Interaction matrix)
 
 And much much more!
+
+**NEW:** pybotron now has a line's interaction matrix!
 
 ## Examples
 
@@ -57,7 +60,6 @@ Enjoy.
 
 ## Roadmap
 
-- Lines interaction matrix implementation
 - Better documentation
 - ROS1/2 implementation (this would be **EXTREMELY** convenient)
 - Universal functions that work on all entities
