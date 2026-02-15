@@ -32,7 +32,7 @@ equal_axes(ax)
 for l in lines_list:
     l.plot(ax=ax)
 
-    p = l.point - 0.1 * cam.project_line(ax,l).u; q = p + 0.3 * cam.project_line(ax,l).u
+    p = l.point - 0.1 * cam.project_line(l).u; q = p + 0.3 * cam.project_line(l).u
     P = cam.project_to_pixels(p);Q = cam.project_to_pixels(q)
 
     plot_lines_2D(np.hstack([P,Q]),ax=cam_img, size=1)
@@ -47,6 +47,3 @@ cam.plot_camera_full(pts,scale = cam_scale, ax=ax)
 
 
 plt.show()
-
-#print(cam.project_line(ax,l).u)
-#print(np.hstack([P,Q]))

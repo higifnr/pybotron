@@ -383,13 +383,12 @@ def clamp(v: np.ndarray, limit: float):
 
 
 
-def interaction_matrix(features : np.ndarray, points : np.ndarray, form ='points', config ='eye_in_hand'):
+def interaction_matrix(features : list, form ='points', config ='eye_in_hand'):
     """ 
     #### Returns interaction matrix (image Jacobian) between image features and cartesian velocities
     Inputs
     ---
-    ``features`` : camera image features (vector) \\
-    ``points`` : 3D points expressed in cam coord frame (column stacked) \\
+    ``features`` : list of features (points, lines...) expressed in camera coordinate frame \\
     ``form`` : type of feature that interaction matrix acts on (points, lines..) \\
     ``config`` : eye-in-hand or eye-to-hand
 
@@ -397,21 +396,62 @@ def interaction_matrix(features : np.ndarray, points : np.ndarray, form ='points
     ---
     ``L`` : interaction matrix acting on twists of the form [w;v]
     """
-    x = features[0,:]
-    y = features[1,:]
-    Z = points[2,:]
+    if isinstance(features, list):
+        ndarrays = [a for a in features if isinstance(a,np.ndarray)]
+        point_vectors = [p for p in ndarrays if np.atleast_2d(p).shape[0] == 1]
+        point_stacks = [p for p in ndarrays if np.atleast_2d(p).shape[0] > 1]
+        lines = [l for l in features if isinstance(l,PluckerLine)]
 
-    n = points.shape[1]
-    L = np.zeros((2*n, 6))
+        n = len(lines) + len(point_vectors) + sum([p.shape[1] for p in point_stacks])
+        L = np.zeros((2*n, 6))
 
-    if form == "points":
-        L[0::2, :] = np.column_stack([
-            x*y,    -1-x*x,    y,   -1/Z,   np.zeros(n),    x/Z            
-        ])
+        for f in features:
+            pass
+        
+        return NotImplemented
 
-        L[1::2, :] = np.column_stack([
-            1+y*y,  -x*y,   -x, np.zeros(n),    -1/Z,   y/Z            
-        ])
+
+    else:
+        if form == "points":
+            n = features.shape[1]
+            L = np.zeros((2*n, 6))
+            X = features[0,:]
+            Y = features[1,:]
+            Z = features[2,:]
+            x = X/Z
+            y = Y/Z
+
+            L[0::2, :] = np.column_stack([
+                x*y,    -1-x*x,    y,   -1/Z,   np.zeros(n),    x/Z            
+            ])
+
+            L[1::2, :] = np.column_stack([
+                1+y*y,  -x*y,   -x, np.zeros(n),    -1/Z,   y/Z            
+            ])
+
+        elif form == "lines":
+            L = np.zeros((2, 6))
+            features : PluckerLine = features
+            u, m = features.u, features.m 
+            a1,b1,c1 = m
+            p = np.cross(u,m)
+            a2,b2,c2 = p
+            d2 = - p@p
+            r = (a1**2 + b1**2)**0.5
+            c = a1/r; s = b1/r
+            rho = -c1/r
+            k1 = (a2 * rho * c + b2 * rho * s + c2)/d2; k2 =  (a2*s - b2 *c)/d2
+
+            #radial part
+            L[0, :] = np.column_stack([
+                (1+ rho**2)*s,   -(1+ rho**2)*c,    0,  k1*c,    k1*s,    -k1*rho              
+            ])
+
+            #angular part
+            L[1, :] = np.column_stack([
+                -rho*c,           -rho*s,   -1,     k2*c,    k2*s,    -k2*rho        
+            ])
+        
     
     if config != "eye_in_hand":
         L[:,:3] *= -1
@@ -1234,7 +1274,7 @@ class Camera:
     def plot_pose(self, ax=None, **kwargs):
         return plot_pose(ax,self.pose,**kwargs)
     
-    def project_line(self, ax: Axes3D, line : PluckerLine):
+    def project_line(self, line : PluckerLine):
         l_cam = line.transform(inv(self.pose))
 
         p = np.cross(l_cam.u, l_cam.m) # 3D point closest from camera to line
@@ -1251,6 +1291,40 @@ class Camera:
         l_world = PluckerLine(u,m)
 
         return l_world.transform(self.pose)
+    
+
+    def project_line_to_polar(self, line : PluckerLine):
+        l_cam = line.transform(inv(self.pose))
+
+        p = np.cross(l_cam.u, l_cam.m) # 3D point closest from camera to line
+        p : np.ndarray= self.f * p/p[2] # 3D point on image plane
+
+        u = l_cam.u
+        u[-1]= 0.0 # projected u on the image plane (it's a vector)
+        u = u/np.linalg.norm(u) 
+        m = np.cross(p,u) 
+
+        q =  np.cross(u,m)  #closest point to projected line on image plane
+
+        rho = np.linalg.norm(q[:2])
+        theta = np.atan2(-q[1],q[0]) # arctan(-y/x) because y_cam is pointing down, also = - arctan(y/x)
+
+        return np.array([rho, theta])
+    
+    def chaumette_projection(self, line : PluckerLine):
+        l_cam = line.transform(inv(self.pose))
+        m = l_cam.m 
+        a1,b1,c1 = m
+        r = (a1**2 + b1**2)**0.5
+        c = a1/r; s = b1/r
+        rho = -c1/r
+        theta = np.atan2(s, c)
+
+        return np.array([rho, theta])
+    
+    def ibvs(self, current_features : list, desired_feartures : list, form ='points', config ='eye_in_hand'):
+        L = interaction_matrix(current_features,form,config)
+
 
     
     def plot_lines(self, ax: Axes3D, lines : List[PluckerLine], L = 1, plot_point = False, **kwargs): 
@@ -1259,12 +1333,14 @@ class Camera:
             lines = [lines,]
 
         self.artists["image_lines"] = None
-
+        artists = []
         for line in lines:
-            l_proj = self.project_line(ax,line)
-            self.artists["image_lines"] = [l_proj.plot(L,ax,**kwargs),]
+            l_proj = self.project_line(line)
+            artists += [l_proj.plot(L,ax,**kwargs),]
             if plot_point:
                 self.plot_points_3D(l_proj.point.reshape(-1,1),ax,color='b',size = 10)
+        
+        self.artists["image_lines"] = artists
 
 
     def plot_img_plane(self, ax=None, **kwargs):

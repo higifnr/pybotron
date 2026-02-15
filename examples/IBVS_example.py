@@ -48,7 +48,7 @@ dt= 0.016
 N = int(sim_time/dt)
 eps = 1e-1
 crit = eps + 1
-Kp = 10
+Kp = 100
 #------------------------------------------
 
 #-------------- plot setup --------------
@@ -82,7 +82,7 @@ def update(frame):
     # Compute control law
     e = (s_c-s_d).flatten(order='F')
 
-    L = interaction_matrix(s_c,cam_c.world_to_camera(vertices))
+    L = interaction_matrix(cam_c.world_to_camera(vertices))
 
     e_dot =  -Kp * e
 
