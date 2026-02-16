@@ -3,7 +3,7 @@
 # a Python package meant for making Robotics / Vision simulation easier and matlab-like
 # includes: Dual Quaternions, Quaternions, Linear Algebra, Plotting, Plücker Lines
 # ==============================
-from typing import List
+from typing import List, Any
 # --- System / Math ---
 import numpy as np
 from numpy import sin, cos, sqrt
@@ -381,6 +381,10 @@ def clamp(v: np.ndarray, limit: float):
         return v * limit / v_norm
     return v
 
+def wrap_angles(arr: np.ndarray) -> np.ndarray:
+    """Wrap all values in the array to the range (-pi, pi]."""
+    return (arr + np.pi) % (2 * np.pi) - np.pi
+
 
 
 def interaction_matrix(features : list, form ='points', config ='eye_in_hand'):
@@ -429,7 +433,7 @@ def interaction_matrix(features : list, form ='points', config ='eye_in_hand'):
                 1+y*y,  -x*y,   -x, np.zeros(n),    -1/Z,   y/Z            
             ])
 
-        elif form == "lines":
+        elif form == "lines": #check if this is eye-in-hand
             L = np.zeros((2, 6))
             features : PluckerLine = features
             u, m = features.u, features.m 
@@ -451,9 +455,30 @@ def interaction_matrix(features : list, form ='points', config ='eye_in_hand'):
             L[1, :] = np.column_stack([
                 -rho*c,           -rho*s,   -1,     k2*c,    k2*s,    -k2*rho        
             ])
+
+        elif form == "polar":
+            n = features.shape[1]
+            L = np.zeros((2*n, 6))
+            X = features[0,:]
+            Y = features[1,:]
+            Z = features[2,:]
+            x = X/Z
+            y = Y/Z
+            rho = np.sqrt(x**2 + y**2)
+            theta = np.atan2(y,x)
+            s= sin(theta); c = cos(theta)
+            #radial part
+            L[0::2, :] = np.column_stack([
+                (1+rho**2)*s, -(1+rho**2)*c , np.zeros(n),          -c/Z,       -s/Z,       rho/Z,             
+            ])
+
+            #angular part
+            L[1::2, :] = np.column_stack([
+                c / rho     ,   s / rho     , -np.ones(n),  s/(rho * Z) ,-c/(rho * Z),np.zeros(n),        
+            ])
         
     
-    if config != "eye_in_hand":
+    if config != "eye_in_hand": #CAREFUL !=
         L[:,:3] *= -1
 
     return L
@@ -1226,6 +1251,16 @@ class Camera:
         pts_h = np.vstack((pts_abs, np.ones((1, N))))
         projected_points = inv(self.pose) @ pts_h
         return projected_points[:3, :]
+    
+    def camera_to_world(self, pts_abs):
+        """
+        Pw: 3xN
+        returns: 3xN
+        """
+        N = pts_abs.shape[1]
+        pts_h = np.vstack((pts_abs, np.ones((1, N))))
+        projected_points = self.pose @ pts_h
+        return projected_points[:3, :]
 
     def set_pose(self, pose : np.ndarray):
         self.pose = pose
@@ -1324,6 +1359,7 @@ class Camera:
     
     def ibvs(self, current_features : list, desired_feartures : list, form ='points', config ='eye_in_hand'):
         L = interaction_matrix(current_features,form,config)
+        return NotImplemented
 
 
     

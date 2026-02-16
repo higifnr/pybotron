@@ -20,10 +20,6 @@ H_d = Rt_to_H(R_d,t_d)
 
 cam_d = Camera(pose= H_d)
 
-
-#l1 = PluckerLine.from_point_direction(cam_d.principle_point+ np.array([0.2,0.1,0]), np.array([0,1,1]))
-#l2 = l1.transform(Rt_to_H(np.eye(3),np.array([0,0,-0.1])))
-
 l1 = PluckerLine.from_point_direction(cam_d.principle_point+ np.array([0.2,0.1,0]), np.array([0,1,0.5]))
 l2 = PluckerLine.from_point_direction(cam_d.principle_point+ np.array([0.2,0.1,0]), np.array([0,1,1]))
 
