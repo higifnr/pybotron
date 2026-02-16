@@ -39,10 +39,10 @@ Kp = 100
 #------------------------------------------
 
 #-------------- plot setup --------------
-fig = plt.figure()
+fig = plt.figure(figsize=(12, 8))
 ax : Axes3D = fig.add_subplot(121, projection='3d', title="3D Scene")
 cam_img = fig.add_subplot(122,  title="Camera Image")
-ax.set_xlim([-1, 1]);   ax.set_ylim([-1, 1]);   ax.set_zlim([-1, 1]);   ax.set_box_aspect([1,1,1])
+ax.set_xlim([-0.5, 0.5]);   ax.set_ylim([-0.5, 0.5]);   ax.set_zlim([-0, 1]);   ax.set_box_aspect([1,1,1])
 cam_img.set_xlim(0, cam_c.resolution[0]) ;cam_img.set_ylim(0, cam_c.resolution[1]); cam_img.set_box_aspect(1)
 artists = []
 cam_scale = 2e-2

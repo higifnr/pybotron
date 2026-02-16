@@ -14,7 +14,7 @@ n = vertices.shape[1]
 px_c = cam.project_to_pixels(vertices)
 
 #-------------- plot setup --------------
-fig = plt.figure()
+fig = plt.figure(figsize=(12, 8))
 ax : Axes3D = fig.add_subplot(121, projection='3d', title="3D Scene")
 cam_img = fig.add_subplot(122,  title="Camera Image")
 ax.set_box_aspect([1,1,1])

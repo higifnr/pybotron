@@ -2,20 +2,13 @@ from pybotron import *
 pi = np.pi
 
 
-
-robot = UR3e()
-q = np.zeros((1,7)).flatten()
-
-H_c = robot.get_EE()
+H_c = Rt_to_H(RPY_to_R(-pi/2, 0,0),np.zeros(3))
 cam_c = Camera(pose= H_c)
 
-
-R_d = RPY_to_R(pi/12, 0,0) @ H_c[:3,:3]
+r,p,y = np.random.rand(3,)
+R_d = RPY_to_R(r,p,y) @ H_c[:3,:3]
 R_d = np.where(abs(R_d) > 1e-5, R_d, 0)
 t_d = H_c[:3,3] - 0.2*np.random.rand(3,)
-
-R_d = H_c[:3,:3]
-t_d = H_c[:3,3] + np.array([0,-0.1,0]).T
 H_d = Rt_to_H(R_d,t_d)
 
 
@@ -25,7 +18,7 @@ cam_d = Camera(pose= H_d)
 width=2*cam_d.u0/cam_d.ku;height=2*cam_d.v0/cam_d.kv
 
 r,p,y = np.random.rand(3,)
-R_cube = RPY_to_R(0,0,0) #RPY_to_R(r,p,y)
+R_cube = RPY_to_R(r,p,y) #RPY_to_R(r,p,y)
 t_cube = t_d + 0.3*(np.random.rand(1,) + 1) * cam_d.principle_axis
 H_cube = Rt_to_H(R_cube,t_cube)
 vertices = generate_cube(H_cube,0.1)
@@ -50,10 +43,10 @@ Kp = 10
 #------------------------------------------
 
 #-------------- plot setup --------------
-fig = plt.figure()
+fig = plt.figure(figsize=(12, 8))
 ax : Axes3D = fig.add_subplot(121, projection='3d', title="3D Scene")
 cam_img = fig.add_subplot(122,  title="Camera Image")
-ax.set_xlim([-1, 1]);   ax.set_ylim([-1, 1]);   ax.set_zlim([-1, 1]);   ax.set_box_aspect([1,1,1])
+ax.set_xlim([-0.5, 0.5]);   ax.set_ylim([-0.5, 0.5]);   ax.set_zlim([-0.5, 0.5]);   ax.set_box_aspect([1,1,1])
 cam_img.set_xlim(0, cam_c.resolution[0]) ;cam_img.set_ylim(0, cam_c.resolution[1]); cam_img.set_box_aspect(1)
 artists = []
 cam_scale = 2e-2
