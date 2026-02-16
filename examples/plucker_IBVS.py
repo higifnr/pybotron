@@ -4,7 +4,7 @@ pi = np.pi
 
 
 robot = UR3e()
-q = np.zeros((1,7)).flatten()
+q = np.zeros(7)
 
 H_c = robot.get_EE()
 cam_c = Camera(pose= H_c)
