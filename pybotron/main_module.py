@@ -10,6 +10,7 @@ from numpy import sin, cos, sqrt
 from numpy.linalg import norm, pinv, inv
 from scipy.linalg import expm, logm
 
+
 # --- Plotting / Visualization ---
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
@@ -21,7 +22,7 @@ import cv2
 
 # --- Math functions ---
 
-def pts_to_homog(points : np.ndarray | list | tuple):
+def pts_to_homog(points):
     """
     #### Adds an extra row of ones to enable homogenous transforms
     Inputs
@@ -44,7 +45,7 @@ def transform_points(points : np.ndarray, T : np.ndarray):
     p = T @ p
     return p[:-1,:]
 
-def skew(vector : np.ndarray | list | tuple):
+def skew(vector):
     """
     #### Returns the skew-symmetric matrix (axiator) of a 3-vector
     Inputs
@@ -465,7 +466,7 @@ def interaction_matrix(features : list, form ='points', config ='eye_in_hand'):
             x = X/Z
             y = Y/Z
             rho = np.sqrt(x**2 + y**2)
-            theta = np.atan2(y,x)
+            theta = np.arctan2(y,x)
             s= sin(theta); c = cos(theta)
             #radial part
             L[0::2, :] = np.column_stack([
@@ -1225,11 +1226,11 @@ class Camera:
 
     @property
     def fov_x(self):
-        return float(2 * np.atan2(self.width / 2 , self.fx))
+        return float(2 * np.arctan2(self.width / 2 , self.fx))
 
     @property
     def fov_y(self):
-        return float(2 * np.atan2(self.height /2 , self.fy))
+        return float(2 * np.arctan2(self.height /2 , self.fy))
     
     @property
     def principle_axis(self):
@@ -1342,7 +1343,7 @@ class Camera:
         q =  np.cross(u,m)  #closest point to projected line on image plane
 
         rho = np.linalg.norm(q[:2])
-        theta = np.atan2(-q[1],q[0]) # arctan(-y/x) because y_cam is pointing down, also = - arctan(y/x)
+        theta = np.arctan2(-q[1],q[0]) # arctan(-y/x) because y_cam is pointing down, also = - arctan(y/x)
 
         return np.array([rho, theta])
     
@@ -1353,7 +1354,7 @@ class Camera:
         r = (a1**2 + b1**2)**0.5
         c = a1/r; s = b1/r
         rho = -c1/r
-        theta = np.atan2(s, c)
+        theta = np.arctan2(s, c)
 
         return np.array([rho, theta])
     
